@@ -86,27 +86,11 @@ jobs:
           // 🔥 古いSDKの使用を完全に排除
           console.log('🚀 Claude Agent SDK リサーチ開始...');
           
-          // 古いSDKのモジュールが存在しないことを確認
-          try {
-            require.resolve('@anthropic-ai/claude-code-sdk');
-            console.error('❌ エラー: 古いSDKがまだインストールされています！');
-            process.exit(1);
-          } catch (e) {
-            console.log('✅ 古いSDKはインストールされていません（正常）');
-          }
+          // ES6モジュール形式でインポート
+          import { Agent } from '@anthropic-ai/claude-agent-sdk';
+          import fs from 'fs';
           
-          // 新しいSDKをインポート
-          let Agent;
-          try {
-            const sdk = require('@anthropic-ai/claude-agent-sdk');
-            Agent = sdk.Agent;
-            console.log('✅ Claude Agent SDK の読み込み成功');
-          } catch (error) {
-            console.error('❌ Claude Agent SDK の読み込みに失敗:', error.message);
-            process.exit(1);
-          }
-          
-          const fs = require('fs');
+          console.log('✅ Claude Agent SDK の読み込み成功');
           
           const theme = process.env.THEME || '';
           const target = process.env.TARGET || '';
