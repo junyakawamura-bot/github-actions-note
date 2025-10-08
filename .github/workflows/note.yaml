@@ -83,11 +83,11 @@ jobs:
       - name: Research with Claude Agent SDK
         run: |
           cat > research.mjs <<'EOF'
-          // 🔥 古いSDKの使用を完全に排除
+          // 🔥 Claude Agent SDK の正しいAPIを使用
           console.log('🚀 Claude Agent SDK リサーチ開始...');
           
           // ES6モジュール形式でインポート
-          import { Agent } from '@anthropic-ai/claude-agent-sdk';
+          import { query } from '@anthropic-ai/claude-agent-sdk';
           import fs from 'fs';
           
           console.log('✅ Claude Agent SDK の読み込み成功');
@@ -111,33 +111,48 @@ jobs:
             try {
               console.log('✅ Claude Agent SDKを使用してリサーチを開始...');
               
-              const agent = new Agent({
-                apiKey: process.env.ANTHROPIC_API_KEY,
-                model: 'claude-3-5-sonnet'
-              });
-              
-              console.log('✅ Agent初期化完了');
-              
-              const result = await agent.respond({
-                messages: [
-                  { role: 'system', content: sys },
-                  { role: 'user', content: userPrompt }
-                ]
-              });
+              // query関数を使用（正しいAPI）
+              const messages = [];
+              for await (const msg of query({
+                prompt: userPrompt,
+                options: {
+                  customSystemPrompt: sys,
+                  allowedTools: ['WebSearch', 'WebFetch'],
+                  permissionMode: 'acceptEdits',
+                },
+              })) { 
+                messages.push(msg); 
+              }
               
               console.log('✅ リサーチ完了');
               
-              // 結果をファイルに保存
-              fs.writeFileSync(`${artifactsDir}/research.md`, result.output || '');
+              // アシスタントのテキストを抽出
+              const assistantTexts = messages
+                .filter(m => m.type === 'assistant')
+                .map(m => {
+                  const c = m.message?.content;
+                  if (Array.isArray(c)) {
+                    return c
+                      .filter(b => b?.type === 'text')
+                      .map(b => b.text)
+                      .join('\n');
+                  }
+                  return '';
+                })
+                .filter(Boolean)
+                .join('\n\n');
               
-              // トレース情報も保存（簡易版）
+              // 結果をファイルに保存
+              fs.writeFileSync(`${artifactsDir}/research.md`, assistantTexts || '');
+              
+              // トレース情報も保存
               try {
                 fs.writeFileSync(`${artifactsDir}/research_trace.json`, JSON.stringify({
                   timestamp: new Date().toISOString(),
                   theme,
                   target,
-                  model: 'claude-3-5-sonnet',
-                  sdk: '@anthropic-ai/claude-agent-sdk'
+                  sdk: '@anthropic-ai/claude-agent-sdk',
+                  messages: messages.length
                 }, null, 2));
               } catch (e) {
                 console.warn('トレース情報の保存に失敗:', e.message);
