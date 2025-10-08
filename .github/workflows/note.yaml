@@ -68,13 +68,44 @@ jobs:
 
       - name: Install Claude Agent SDK
         run: |
+          # 古いSDKを完全に削除
+          npm uninstall @anthropic-ai/claude-code-sdk @anthropic-ai/claude-code || true
+          npm cache clean --force || true
+          
+          # package.jsonを初期化して新しいSDKをインストール
           npm init -y
-          npm i @anthropic-ai/claude-agent-sdk
+          npm install @anthropic-ai/claude-agent-sdk@latest
+          
+          # インストール確認
+          echo "Installed packages:"
+          npm list --depth=0
 
       - name: Research with Claude Agent SDK
         run: |
           cat > research.mjs <<'EOF'
-          const { Agent } = require('@anthropic-ai/claude-agent-sdk');
+          // 🔥 古いSDKの使用を完全に排除
+          console.log('🚀 Claude Agent SDK リサーチ開始...');
+          
+          // 古いSDKのモジュールが存在しないことを確認
+          try {
+            require.resolve('@anthropic-ai/claude-code-sdk');
+            console.error('❌ エラー: 古いSDKがまだインストールされています！');
+            process.exit(1);
+          } catch (e) {
+            console.log('✅ 古いSDKはインストールされていません（正常）');
+          }
+          
+          // 新しいSDKをインポート
+          let Agent;
+          try {
+            const sdk = require('@anthropic-ai/claude-agent-sdk');
+            Agent = sdk.Agent;
+            console.log('✅ Claude Agent SDK の読み込み成功');
+          } catch (error) {
+            console.error('❌ Claude Agent SDK の読み込みに失敗:', error.message);
+            process.exit(1);
+          }
+          
           const fs = require('fs');
           
           const theme = process.env.THEME || '';
@@ -87,7 +118,7 @@ jobs:
             'あなたは最新情報の収集と要約に特化した超一流のリサーチャーです。',
             '事実ベース・一次情報優先・本文内にMarkdownリンクで出典を埋め込むこと。',
             '十分な分量（目安: 2,000語以上）。各節で出典を本文に埋め込む。',
-            'WebSearch と WebFetch を必ず使用し、一次情報（公的機関・規格・論文・公式）を優先する。',
+            '最新のAI技術とトレンドについて包括的なリサーチレポートを作成してください。',
           ].join('\n');
           
           const userPrompt = `以下のテーマとターゲットに対する最終版のリサーチレポートを作成してください。\n【重要】途中経過や確認質問は一切せず、最終レポートのみを返してください。不明点がある場合は「前提と仮定」セクションで簡潔に仮定を明記してから続行してください。事実ベースで一次情報を最優先し、本文にMarkdownリンクで出典を埋め込んでください。\n---\nテーマ: ${theme}\nターゲット: ${target}\n現在日付: ${today}`;
@@ -121,14 +152,18 @@ jobs:
                   timestamp: new Date().toISOString(),
                   theme,
                   target,
-                  model: 'claude-3-5-sonnet'
+                  model: 'claude-3-5-sonnet',
+                  sdk: '@anthropic-ai/claude-agent-sdk'
                 }, null, 2));
               } catch (e) {
                 console.warn('トレース情報の保存に失敗:', e.message);
               }
               
+              console.log('🎉 リサーチが正常に完了しました！');
+              
             } catch (error) {
               console.error('❌ エラーが発生しました:', error.message);
+              console.error('❌ スタックトレース:', error.stack);
               process.exit(1);
             }
           }
